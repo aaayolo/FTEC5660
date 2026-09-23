@@ -86,10 +86,11 @@ def build_chain() -> Any:
 
             Rules:
             - Extract values directly from the receipt.
-            - "paid" mainly comes from Octopus or Visa.
-            - "paid" equals subtotal minus rounding and can be used as a check.
+            - "subtotal" is also recorded as "小計".
             - "off" contains all discount amounts and should be positive.
-            - Keep the sign of rounding.
+            - Keep the sign of "rounding".
+            - "paid" mainly comes from Octopus or Visa.
+            - "paid" equals "subtotal" plus "rounding" and can be used as a check.
             - Do not calculate anything.
             - Do not include currency symbols.
             """
