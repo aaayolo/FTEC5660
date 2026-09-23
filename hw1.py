@@ -63,7 +63,55 @@ def build_chain() -> Any:
     ``deepseek-v4-flash-vision-exp``. The API key is loaded from .env.
     """
     ### YOUR CODE HERE
-    return None
+    from langchain_core.prompts import ChatPromptTemplate
+    from langchain_deepseek import ChatDeepSeek
+    from langchain_core.output_parsers import JsonOutputParser
+
+    prompt = ChatPromptTemplate.from_messages([
+        (
+            "system",
+            """Extract these four values from the receipt:
+            1. subtotal
+            2. rounding
+            3. off
+            4. paid
+
+            Return ONLY valid JSON:
+            {{
+                "subtotal": "0.00",
+                "rounding": "0.00",
+                "off": ["0.00"],
+                "paid": "0.00"
+            }}
+
+            Rules:
+            - Extract values directly from the receipt.
+            - "paid" mainly comes from Octopus or Visa.
+            - "paid" equals subtotal minus rounding and can be used as a check.
+            - "off" contains all discount amounts and should be positive.
+            - Keep the sign of rounding.
+            - Do not calculate anything.
+            - Do not include currency symbols.
+            """
+        ),
+        (
+            "human",
+            [
+                {"type": "text", "text": "Extract the receipt information."},
+                {
+                    "type": "image_url",
+                    "image_url": {"url": "{image_url}"}
+                },
+            ],
+        ),
+    ])
+
+    llm = ChatDeepSeek(
+        model="deepseek-v4-flash-vision-exp",
+        temperature=0,
+    )
+
+    return prompt | llm | JsonOutputParser()
 
 
 def answer_queries(chain: Any, images: list[Path]) -> dict[str, Any]:
@@ -79,8 +127,40 @@ def answer_queries(chain: Any, images: list[Path]) -> dict[str, Any]:
     to process independent receipt-extraction prompts in parallel.
     """
     ### YOUR CODE HERE
-    _ = (chain, images)
-    return {QUERY_1: DUMMY_RESPONSE, QUERY_2: DUMMY_RESPONSE}
+    requests = [
+        {"image_url": image_data_url(path)}
+        for path in images
+    ]
+
+    results = chain.batch(requests)
+
+    total_paid = Decimal("0.00")
+    total_without_discount = Decimal("0.00")
+
+    for data in results:
+        subtotal = Decimal(str(data["subtotal"]))
+        paid = Decimal(str(data["paid"]))
+
+        off = sum(
+            Decimal(str(value))
+            for value in data.get("off", [])
+        )
+
+        # Question 1: total Octopus payment
+        total_paid += paid
+
+        # Question 2: subtotal + all discounts
+        total_without_discount += subtotal + off
+
+    total_paid = total_paid.quantize(Decimal("0.01"))
+    total_without_discount = total_without_discount.quantize(
+        Decimal("0.01")
+    )
+
+    return {
+        QUERY_1: f"HK${total_paid:.2f}",
+        QUERY_2: f"HK${total_without_discount:.2f}",
+    }
 
 
 # Everything below is provided runner/scoring code. No edits are needed.
