@@ -49,5 +49,18 @@ homework runner.
 
 
 ## Homework 1 solution: 
-> to students: please fill your solution description here.
+My implementation process is as follows:
+
+1. First, I use a LangChain chain to process each receipt image and extract four pieces of information using the LLM: the pre-rounding amount due (`subtotal`), the rounding amount (`rounding`), the discount amount (`off`), and the actual payment amount (`paid`). The execution flow of the chain is:
+
+   **Receipt image → LLM → JSON-formatted information**
+
+   The extracted information is returned in JSON format so that it can be processed programmatically in the next step.
+
+2. Next, I use Python to process the JSON-formatted information extracted by the LLM. I use LangChain's `batch` method to process multiple receipt images in parallel, which improves the efficiency of processing multiple receipts.
+
+3. Finally, I perform all calculations in Python rather than relying on the LLM to calculate the amounts. For each receipt, the total actual payment is accumulated using `total_paid += paid`, while the total amount before discounts is calculated using `total_without_discount += subtotal + off`.
+
+This design separates information extraction from numerical computation: the LLM is responsible for extracting information from receipt images, while Python is responsible for the subsequent calculations. This helps reduce potential errors caused by LLM arithmetic.
+
 
